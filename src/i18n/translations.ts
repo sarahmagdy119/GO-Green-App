@@ -82,14 +82,14 @@ export const translations = {
 
   ar: {
     login: {
-      title: 'أهلاً بيك تاني',
+      title: 'أهلاً بك ',
       username: 'اسم المستخدم',
       password: 'كلمة المرور',
       submit: 'تسجيل الدخول',
       usernameRequired: 'اسم المستخدم مطلوب',
       passwordRequired: 'كلمة المرور مطلوبة',
       passwordMinLength: 'كلمة المرور لازم تكون 6 حروف على الأقل',
-      loginFailed: 'اسم المستخدم أو كلمة المرور غلط',
+      loginFailed: 'اسم المستخدم أو كلمة المرور غير صحيحة',
     },
 
     scan: {
@@ -97,9 +97,9 @@ export const translations = {
       restaurantTitle: 'المطعم',
       tapToScan: 'اضغط للمسح',
       hint: 'امسح لعرض التفاصيل',
-      failed: 'فشل المسح، حاول تاني',
-      notSupported: 'الجهاز ده مش بيدعم NFC',
-      requestFailed: 'حصلت مشكلة في التحقق، حاول تاني',
+      failed: 'فشل المسح، حاول مره اخرى',
+      notSupported: 'الجهاز لا يدعم NFC',
+      requestFailed: 'حصلت مشكلة في التحقق، حاول مره اخرى',
       activityLogs: 'سجل النشاط',
       enterRoomNumber: 'أدخل رقم الغرفة',
       submit: 'تأكيد',
@@ -149,10 +149,10 @@ export const translations = {
       cancel: 'إلغاء',
       confirmationMessage:
         'هل أنت متأكد أنك تريد تسجيل العناصر المحددة كمرتجعة؟',
-      noActiveTowels: 'مفيش مناشف مسحوبة حاليًا',
+      noActiveTowels: 'لا توجد مناشف مسحوبة حاليًا',
       numberOfTowels: 'عدد المناشف',
       location: 'المكان',
-      noHistoryFound: 'مفيش سجل حركات',
+      noHistoryFound: 'لا يوجد سجل حركات',
       roomLabel: 'الغرفة',
       guestLabel: 'الضيف',
       towelsLabel: 'المناشف',
