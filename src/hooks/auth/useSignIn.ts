@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { loginSchema } from '../../schema/auth.schema';
 import { useAuthStore } from '../../store/auth.store';
+import { getDeviceId } from '../../utils/device';
 
 export function useSignIn() {
   const [username, setUsername] = useState('');
@@ -22,9 +23,8 @@ export function useSignIn() {
     }
     setFieldErrors({});
 
-    // TODO: replace with a real, persisted device id (e.g. expo-application + secure storage)
-    const deviceId = 'device-123';
-
+    const deviceId = await getDeviceId();
+    console.log('DEVICE ID >>>', deviceId);
     return login(username, password, deviceId);
   };
 

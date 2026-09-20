@@ -10,6 +10,8 @@ async function ensureInit() {
   }
 }
 
+const SCAN_TIMEOUT_MS = 15000;
+
 export function useNfcScan() {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +23,11 @@ export function useNfcScan() {
       mounted.current = false;
       NfcManager.cancelTechnologyRequest().catch(() => {});
     };
+  }, []);
+
+  const cancel = useCallback(() => {
+    NfcManager.cancelTechnologyRequest().catch(() => {});
+    if (mounted.current) setIsScanning(false);
   }, []);
 
   const scan = useCallback(async (): Promise<string | null> => {
@@ -35,7 +42,13 @@ export function useNfcScan() {
         return null;
       }
 
-      await NfcManager.requestTechnology([NfcTech.NfcA, NfcTech.Ndef]);
+      await Promise.race([
+        NfcManager.requestTechnology([NfcTech.NfcA, NfcTech.Ndef]),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), SCAN_TIMEOUT_MS)
+        ),
+      ]);
+
       const tag = await NfcManager.getTag();
       const rawId = tag?.id ?? null;
       if (!rawId) {
@@ -52,5 +65,5 @@ export function useNfcScan() {
     }
   }, []);
 
-  return { isScanning, error, scan };
+  return { isScanning, error, scan, cancel };
 }

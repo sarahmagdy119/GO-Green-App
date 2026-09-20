@@ -12,10 +12,7 @@ export interface LoginUser {
   role: string;
 }
 
-export interface LoginArea {
-  ar_name: string;
-  en_name: string;
-}
+export type LoginArea = string;
 
 export interface LoginResponse {
   accessToken: string;

@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { LoginArea, login as loginRequest, LoginUser } from '../service/auth.service';
-import { setAccessToken } from './authToken';
+import {
+  loadPersistedAccessToken,
+  loadPersistedAuthData,
+  persistAccessToken,
+  persistAuthData,
+} from './authToken';
+
+interface PersistedAuthData {
+  user: LoginUser;
+  area: LoginArea;
+  isTowelManagement: boolean;
+}
 
 interface AuthState {
   accessToken: string | null;
@@ -8,9 +19,11 @@ interface AuthState {
   area: LoginArea | null;
   isTowelManagement: boolean;
   isLoading: boolean;
+  isInitializing: boolean;
   error: string | null;
+  initialize: () => Promise<void>;
   login: (username: string, password: string, deviceId: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -19,13 +32,40 @@ export const useAuthStore = create<AuthState>((set) => ({
   area: null,
   isTowelManagement: false,
   isLoading: false,
+  isInitializing: true,
   error: null,
+
+  initialize: async () => {
+    try {
+      const token = await loadPersistedAccessToken();
+const data = await loadPersistedAuthData<PersistedAuthData>();
+console.log('PERSISTED DATA >>>', data);
+      set({
+        accessToken: token,
+        user: data?.user ?? null,
+        area: data?.area ?? null,
+        isTowelManagement: data?.isTowelManagement ?? false,
+        isInitializing: false,
+      });
+    } catch {
+      set({ accessToken: null, user: null, area: null, isTowelManagement: false, isInitializing: false });
+    }
+  },
 
   login: async (username, password, deviceId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await loginRequest({ username, password, deviceId });
-      setAccessToken(response.accessToken);
+const response = await loginRequest({ username, password, deviceId });
+console.log('RAW LOGIN RESPONSE >>>', JSON.stringify(response));
+
+await persistAccessToken(response.accessToken);
+await persistAuthData({
+  user: response.user,
+  area: response.area,
+  isTowelManagement: response.isTowelManagement,
+});
+console.log('AREA AFTER SET >>>', response.area);
+
       set({
         accessToken: response.accessToken,
         user: response.user,
@@ -35,23 +75,21 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       return true;
     } catch (err: any) {
-      // TODO: شيلي الـ console.log ده بعد ما تتأكدي إن السبب اتحل
       console.log('LOGIN ERROR >>>', {
         message: err?.message,
-        stack: err?.stack,
         status: err?.response?.status,
         data: err?.response?.data,
       });
 
       const status = err?.response?.status;
-      let error = 'login.loginFailed';
+      let error = 'loginFailed';
 
       if (!err?.response) {
-        error = 'login.networkError';
+        error = 'network Error , check your internet connection';
       } else if (status === 401 || status === 400) {
-        error = 'login.invalidCredentials';
+        error = 'invalid username or password';
       } else if (status && status >= 500) {
-        error = 'login.serverError';
+        error = 'server Error';
       }
 
       set({ isLoading: false, error });
@@ -59,8 +97,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  logout: () => {
-    setAccessToken(null);
+  logout: async () => {
+    await persistAccessToken(null);
+    await persistAuthData(null);
     set({ accessToken: null, user: null, area: null, isTowelManagement: false, error: null });
   },
 }));

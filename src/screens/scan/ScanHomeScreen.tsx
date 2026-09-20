@@ -1,27 +1,39 @@
+// app/(tabs)/index.tsx
 import { Colors, Fonts } from '@/constants/theme';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 
+import axios from 'axios';
 import MainHeader from '../../components/common/MainHeader';
+import ScanButton from '../../components/scan/ScanButton';
+import ScanTextInput from '../../components/scan/ScanTextInput';
 import { useNfcScan } from '../../hooks/scan/useNfcScan';
 import { useTranslation } from '../../i18n/LanguageContext';
-import { checkAccess } from '../../service/scan.service';
+import { checkAccess, checkTowelAccess } from '../../service/scan.service';
+import { useAuthStore } from '../../store/auth.store';
 import { useScanStore } from '../../store/scan.store';
 import { getDeviceId } from '../../utils/device';
 import { getRoomId } from '../../utils/roomConfig';
 
 export default function ScanHomeScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
+  const area = useAuthStore((s) => s.area);
+  const isTowelManagement = useAuthStore((s) => s.isTowelManagement);
+  const accessToken = useAuthStore((s) => s.accessToken);
   const {
     scan,
     isScanning,
@@ -29,16 +41,37 @@ export default function ScanHomeScreen() {
   } = useNfcScan();
 
   const setResult = useScanStore((s) => s.setResult);
+  const setTowelResult = useScanStore((s) => s.setTowelResult);
 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [roomNumber, setRoomNumber] = useState('');
+  const [manualSubmitting, setManualSubmitting] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const handleScan = useCallback(async () => {
+    console.log('[ScanHomeScreen] handleScan started, isTowelManagement:', isTowelManagement);
     setError(null);
 
     const cardSerial = await scan();
+    console.log('[ScanHomeScreen] scan() returned cardSerial:', cardSerial);
 
     if (!cardSerial) {
+      console.log('[ScanHomeScreen] no cardSerial, nfcError:', nfcError);
       setError(nfcError ? t(nfcError) : t('scan.failed'));
       return;
     }
@@ -50,6 +83,26 @@ export default function ScanHomeScreen() {
         getDeviceId(),
         getRoomId(),
       ]);
+      console.log('[ScanHomeScreen] deviceId:', deviceId, 'roomId:', roomId);
+
+      if (isTowelManagement) {
+        console.log('[ScanHomeScreen] calling checkTowelAccess with:', { cardSerial, deviceId, roomId });
+        const towelResponse = await checkTowelAccess({
+          cardSerial,
+          deviceId,
+          roomId,
+        });
+        console.log('[ScanHomeScreen] checkTowelAccess response:', towelResponse);
+
+        setTowelResult(towelResponse, {
+          cardSerial,
+          deviceId,
+          roomId,
+        });
+        console.log('[ScanHomeScreen] setTowelResult called, navigating to /towel-details');
+        router.push('/towel-details');
+        return;
+      }
 
       const response = await checkAccess({
         cardSerial,
@@ -62,62 +115,175 @@ export default function ScanHomeScreen() {
       router.push(
         response.allowed ? '/allowed' : '/not-allowed'
       );
-    } catch {
+    } catch (err) {
+      console.log('[ScanHomeScreen] handleScan error:', err);
+      if (axios.isAxiosError(err)) {
+        console.log('[ScanHomeScreen] axios status:', err.response?.status, 'data:', err.response?.data);
+      }
       setError(t('scan.requestFailed'));
     } finally {
       setProcessing(false);
     }
-  }, [scan, nfcError, setResult, router, t]);
+  }, [scan, nfcError, setResult, setTowelResult, isTowelManagement, router, t]);
+
+  const handleManualSubmit = useCallback(async () => {
+    if (!roomNumber.trim()) return;
+
+    console.log('[ScanHomeScreen] handleManualSubmit started, roomNumber:', roomNumber);
+    setError(null);
+    setManualSubmitting(true);
+
+    try {
+      const deviceId = await getDeviceId();
+      console.log('[ScanHomeScreen] deviceId:', deviceId);
+
+      if (isTowelManagement) {
+        const towelResponse = await checkTowelAccess({
+          deviceId,
+          roomId: roomNumber.trim(),
+        });
+        console.log('[ScanHomeScreen] checkTowelAccess (manual) response:', towelResponse);
+
+        setTowelResult(towelResponse, {
+          deviceId,
+          roomId: roomNumber.trim(),
+          // no cardSerial available here — manual entry has no card scan
+        });
+        console.log('[ScanHomeScreen] setTowelResult (manual) called, navigating to /towel-details');
+        router.push('/towel-details');
+        return;
+      }
+
+      const response = await checkAccess({
+        deviceId,
+        roomId: roomNumber.trim(),
+      });
+
+      setResult(response);
+
+      router.push(
+        response.allowed ? '/allowed' : '/not-allowed'
+      );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        console.log('Status:', err.response?.status);
+        console.log('Data:', err.response?.data);
+        console.log('Message:', err.message);
+      } else {
+        console.log('Unknown error:', err);
+      }
+      setError(t('scan.requestFailed'));
+    } finally {
+      setManualSubmitting(false);
+    }
+  }, [roomNumber, setResult, setTowelResult, isTowelManagement, router, t]);
 
   const busy = isScanning || processing;
+  const showCard = !keyboardVisible;
+
+  const title = area
+    ? area
+    : t('scan.restaurantTitle');
+
+  if (!accessToken) {
+    return null;
+  }
 
   return (
-    <View style={styles.container}>
+    <ScrollView>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <MainHeader />
 
-      <View style={styles.content}>
-        <Text style={styles.title}>
-          {t('scan.restaurantTitle')}
+      {isTowelManagement && (
+        <Pressable
+          style={styles.activityLogButton}
+          onPress={() => router.push('/activity-log')}
+        >
+          <Text style={styles.activityLogText}>{t('scan.activityLogs')}</Text>
+        </Pressable>
+      )}
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text
+          style={[
+            styles.title,
+            keyboardVisible && styles.titleKeyboardOpen,
+          ]}
+        >
+          {title}
         </Text>
 
-        <View style={styles.titleUnderline} />
+        <View style={[styles.titleUnderline, keyboardVisible && styles.titleUnderlineKeyboardOpen]} />
 
-        <Pressable
-          style={styles.cardFrame}
-          onPress={handleScan}
-          disabled={busy}
-        >
-          <Image
-            source={require('../../../assets/images/nfc-scan.png')}
-            style={styles.cardImage}
-            resizeMode="cover"
+        {showCard && (
+          <>
+            <Pressable
+              style={styles.cardFrame}
+              onPress={handleScan}
+              disabled={busy}
+            >
+              <Image
+                source={require('../../../assets/images/nfc-scan.png')}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+
+              {busy && (
+                <View style={styles.overlay}>
+                  <ActivityIndicator
+                    color={Colors.navy}
+                    size="large"
+                  />
+                </View>
+              )}
+            </Pressable>
+
+            <Text style={styles.tapText}>
+              {t('scan.tapToScan')}
+            </Text>
+
+            <Text style={styles.hintText}>
+              {t('scan.hint')}
+            </Text>
+          </>
+        )}
+
+        <View style={styles.errorSlot}>
+          {!!error && (
+            <Text style={styles.error}>
+              {error}
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.manualEntry}>
+          <ScanTextInput
+            value={roomNumber}
+            onChangeText={setRoomNumber}
+            placeholder={t('scan.enterRoomNumber')}
+            returnKeyType="done"
+            onSubmitEditing={handleManualSubmit}
           />
 
-          {busy && (
-            <View style={styles.overlay}>
-              <ActivityIndicator
-                color={Colors.navy}
-                size="large"
-              />
-            </View>
-          )}
-        </Pressable>
-
-        <Text style={styles.tapText}>
-          {t('scan.tapToScan')}
-        </Text>
-
-        <Text style={styles.hintText}>
-          {t('scan.hint')}
-        </Text>
-
-        {!!error && (
-          <Text style={styles.error}>
-            {error}
-          </Text>
-        )}
-      </View>
-    </View>
+          <ScanButton
+            label={t('scan.submit')}
+            onPress={handleManualSubmit}
+            loading={manualSubmitting}
+            disabled={!roomNumber.trim()}
+            style={styles.manualButton}
+          />
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
 
@@ -127,26 +293,57 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
 
+  activityLogButton: {
+    position: 'absolute',
+    top: 170,
+    left: 20,
+    zIndex: 10,
+    backgroundColor: Colors.gold,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+
+  activityLogText: {
+    fontFamily: Fonts.body,
+    fontSize: 12,
+    color: Colors.white,
+  },
+
   content: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 28,
+    paddingVertical: 32,
+    marginTop: 29,
   },
 
   title: {
     fontFamily: Fonts.heading,
-    fontSize: 45,
+    fontSize: 32,
     color: Colors.gold,
     letterSpacing: 2,
+    marginTop: 150,
+    textAlign: 'center',
+    width: '100%',
+  },
+
+  titleKeyboardOpen: {
+    paddingTop: 30,
   },
 
   titleUnderline: {
     width: 220,
     height: 1.2,
     backgroundColor: Colors.border,
-    marginTop: 6,
-    marginBottom: 38,
+    marginTop: 12,
+    marginBottom: 25,
+  },
+
+  titleUnderlineKeyboardOpen: {
+    marginBottom: 0,
+  
   },
 
   cardFrame: {
@@ -159,7 +356,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
 
-    // Shadow - iOS
     shadowColor: Colors.textSecondary,
     shadowOffset: {
       width: 0,
@@ -168,7 +364,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 8,
 
-    // Shadow - Android
     elevation: 17,
   },
 
@@ -199,117 +394,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
+  errorSlot: {
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+
   error: {
     fontFamily: Fonts.body,
     fontSize: 13,
     color: Colors.error,
-    marginTop: 16,
     textAlign: 'center',
   },
+
+  manualEntry: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 20,
+  },
+
+  manualButton: {
+    marginTop: 4,
+    marginBottom: 30,
+  },
 });
-
-// import { useRouter } from 'expo-router';
-// import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-// import MainHeader from '../../components/common/MainHeader';
-// import { useTranslation } from '../../i18n/LanguageContext';
-// import { useScanStore } from '../../store/scan.store';
-
-// const MOCK_ALLOWED = {
-//   allowed: true as const,
-//   allowedAreas: [
-//     { id: 1, name: 'Restaurant', type: 'RESTAURANT' },
-//     { id: 2, name: 'Pool', type: 'POOL' },
-//     { id: 3, name: 'Gym', type: 'GYM' },
-//   ],
-//   reservationDetails: {
-//     guestName: 'Ahmed Mahmoud',
-//     roomNumber: 1005,
-//     allowedCompanions: 5,
-//     reservationCategory: 'HB',
-//     checkIn: '2026-05-10T00:00:00.000Z',
-//     checkOut: '2026-05-15T00:00:00.000Z',
-//   },
-// };
-
-// const MOCK_NOT_ALLOWED = {
-//   allowed: false as const,
-//   reason: 'No valid restaurant package found',
-//   allowedAreas: [
-//     { id: 1, name: 'Restaurant', type: 'RESTAURANT' },
-//     { id: 2, name: 'Pool', type: 'POOL' },
-//     { id: 3, name: 'Gym', type: 'GYM' },
-//   ],
-// };
-
-// export default function ScanHomeScreen() {
-//   const router = useRouter();
-//   const { t } = useTranslation();
-//   const setResult = useScanStore((s) => s.setResult);
-
-//   const goAllowed = () => {
-//     setResult(MOCK_ALLOWED);
-//     router.push('/allowed');
-//   };
-
-//   const goNotAllowed = () => {
-//     setResult(MOCK_NOT_ALLOWED);
-//     router.push('/not-allowed');
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <MainHeader />
-
-//       <View style={styles.content}>
-//         <Text style={styles.title}>{t('scan.restaurantTitle')}</Text>
-//         <View style={styles.titleUnderline} />
-
-//         <Pressable style={styles.cardFrame} onPress={goAllowed}>
-//           <Image
-//             source={require('../../../assets/images/nfc-scan.png')}
-//             style={styles.cardImage}
-//             resizeMode="cover"
-//           />
-//         </Pressable>
-
-//         <Text style={styles.tapText}>{t('scan.tapToScan')}</Text>
-//         <Text style={styles.hintText}>{t('scan.hint')}</Text>
-
-//         <View style={styles.devRow}>
-//           <Pressable style={[styles.devBtn, styles.devBtnGreen]} onPress={goAllowed}>
-//             <Text style={styles.devBtnText}>Allowed Screen</Text>
-//           </Pressable>
-//           <Pressable style={[styles.devBtn, styles.devBtnRed]} onPress={goNotAllowed}>
-//             <Text style={styles.devBtnText}>Not Allowed Screen</Text>
-//           </Pressable>
-//         </View>
-//       </View>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, backgroundColor: '#ffffff' },
-//   content: { flex: 1, alignItems: 'center', paddingTop: 24, paddingHorizontal: 28 },
-//   title: { fontSize: 26, fontWeight: '700', color: '#c9a25a' },
-//   titleUnderline: { width: 60, height: 2, backgroundColor: '#c9a25a', marginTop: 6, marginBottom: 28 },
-//   cardFrame: {
-//     width: 230,
-//     height: 230,
-//     borderRadius: 16,
-//     borderWidth: 2,
-//     borderColor: '#2f8fe0',
-//     overflow: 'hidden',
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     backgroundColor: '#f4f4f4',
-//   },
-//   cardImage: { width: '100%', height: '100%' },
-//   tapText: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginTop: 18 },
-//   hintText: { fontSize: 12, color: '#9a9a9a', marginTop: 4 },
-//   devRow: { flexDirection: 'row', gap: 10, marginTop: 30 },
-//   devBtn: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
-//   devBtnGreen: { backgroundColor: '#e6f4ea' },
-//   devBtnRed: { backgroundColor: '#fdecea' },
-//   devBtnText: { fontSize: 12, fontWeight: '600', color: '#333' },
-// });

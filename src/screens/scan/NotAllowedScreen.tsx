@@ -1,8 +1,10 @@
+// app/(tabs)/not-allowed.tsx
 import MainHeader from '@/components/common/MainHeader';
 import { Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AreaListItem from '../../components/scan/AreaListItem';
 import { useTranslation } from '../../i18n/LanguageContext';
 import { useScanStore } from '../../store/scan.store';
@@ -19,39 +21,42 @@ export default function NotAllowedScreen() {
   const handleBackToScan = () => router.replace('/');
 
   return (
-    <ScrollView style={styles.container}>
-      <MainHeader />
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <ScrollView style={styles.container}>
+        <MainHeader />
 
-      <View style={styles.content}>
-        <View style={styles.notAllowedBox}>
-          <View style={styles.iconWrap}>
-            <Ionicons name="ban-outline" size={40} color="#B23A3A" />
+        <View style={styles.content}>
+          <View style={styles.notAllowedBox}>
+            <View style={styles.iconWrap}>
+              <Ionicons name="ban-outline" size={40} color="#B23A3A" />
+            </View>
+            <Text style={styles.notAllowedText}>{t('scan.notAllowed')}</Text>
+            <View style={styles.notAllowedUnderline} />
           </View>
-          <Text style={styles.notAllowedText}>{t('scan.notAllowed')}</Text>
-          <View style={styles.notAllowedUnderline} />
-        </View>
 
-        <Pressable style={styles.backButton} onPress={handleBackToScan}>
-          <Text style={styles.backButtonText}>{t('scan.backToScan')}</Text>
-        </Pressable>
-
-        <Text style={styles.sectionTitle}>{t('scan.accessibleAreas')}</Text>
-
-        {visibleAreas.map((area) => (
-          <AreaListItem key={area.id} area={area} />
-        ))}
-
-        {hasMore && (
-          <Pressable style={styles.viewMore}>
-            <Text style={styles.viewMoreText}>{t('scan.viewMore')}</Text>
+          <Pressable style={styles.backButton} onPress={handleBackToScan}>
+            <Text style={styles.backButtonText}>{t('scan.backToScan')}</Text>
           </Pressable>
-        )}
-      </View>
-    </ScrollView>
+
+          <Text style={styles.sectionTitle}>{t('scan.accessibleAreas')}</Text>
+
+          {visibleAreas.map((area) => (
+            <AreaListItem key={area.id} area={area} />
+          ))}
+
+          {hasMore && (
+            <Pressable style={styles.viewMore}>
+              <Text style={styles.viewMoreText}>{t('scan.viewMore')}</Text>
+            </Pressable>
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#ffffff' },
   container: { flex: 1, backgroundColor: '#ffffff'  },
   content: { alignItems: 'center' , marginTop: '55%'},
   notAllowedBox: {
