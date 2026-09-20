@@ -1,21 +1,15 @@
-// app/(tabs)/towel-details.tsx
 import { Colors, Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import MainHeader from '../../components/common/MainHeader';
-import { useTranslation } from '../../i18n/LanguageContext';
-import { submitTowelMovement } from '../../service/scan.service';
-import { useScanStore } from '../../store/scan.store';
-import { TowelStatus } from '../../types/scan.types';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import ClientDetailsCard from '../../../components/common/ClientDetails';
+import MainHeader from '../../../components/common/MainHeader';
+import { useTranslation } from '../../../i18n/LanguageContext';
+import { submitTowelMovement } from '../../../service/scan.service';
+import { useScanStore } from '../../../store/scan.store';
+import { TowelStatus } from '../../../types/scan.types';
 
 type ConfirmationKind = 'TAKEN' | 'RETURNED' | null;
 
@@ -37,8 +31,7 @@ export default function TowelDetailsScreen() {
 
   const handleBackToScan = () => router.replace('/');
 
-  const maxForTab =
-    activeTab === 'OUT' ? (towel?.remaining ?? 0) : (towel?.taken ?? 0);
+  const maxForTab = activeTab === 'OUT' ? (towel?.remaining ?? 0) : (towel?.taken ?? 0);
 
   const increment = () => {
     if (quantity < maxForTab) setQuantity((q) => q + 1);
@@ -93,21 +86,22 @@ export default function TowelDetailsScreen() {
 
         <View style={styles.content}>
           {reservation && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>{t('scan.clientDetails')}</Text>
-
-              <DetailRow label={t('scan.guestName')} value={reservation.guestName} />
-              <DetailRow label={t('scan.roomNumber')} value={reservation.roomNumber} highlight />
-              <DetailRow
-                label={t('scan.numberOfGuests')}
-                value={String(reservation.allowedCompanions)}
-              />
-              <DetailRow
-                label={t('scan.towelsTaken')}
-                value={String(towel?.taken ?? 0)}
-                last
-              />
-            </View>
+            <ClientDetailsCard
+              title={t('scan.clientDetails')}
+              rows={[
+                { label: t('scan.guestName'), value: reservation.guestName },
+                {
+                  label: t('scan.roomNumber'),
+                  value: reservation.roomNumber,
+                  highlight: true,
+                },
+                {
+                  label: t('scan.numberOfGuests'),
+                  value: String(reservation.allowedCompanions),
+                },
+                { label: t('scan.towelsTaken'), value: String(towel?.taken ?? 0) },
+              ]}
+            />
           )}
 
           {towel && (
@@ -116,10 +110,7 @@ export default function TowelDetailsScreen() {
               <Text style={styles.cardSubtitle}>{t('scan.trackGuestTowelUsage')}</Text>
 
               <View style={styles.tabRow}>
-                <Pressable
-                  style={styles.tab}
-                  onPress={() => handleTabChange('IN')}
-                >
+                <Pressable style={styles.tab} onPress={() => handleTabChange('IN')}>
                   <Ionicons
                     name="arrow-down-circle-outline"
                     size={16}
@@ -132,10 +123,7 @@ export default function TowelDetailsScreen() {
                   {activeTab === 'IN' && <View style={styles.tabUnderline} />}
                 </Pressable>
 
-                <Pressable
-                  style={styles.tab}
-                  onPress={() => handleTabChange('OUT')}
-                >
+                <Pressable style={styles.tab} onPress={() => handleTabChange('OUT')}>
                   <Ionicons
                     name="arrow-up-circle-outline"
                     size={16}
@@ -160,11 +148,7 @@ export default function TowelDetailsScreen() {
                 </Text>
 
                 <View style={styles.counterRow}>
-                  <Pressable
-                    style={styles.counterButton}
-                    onPress={decrement}
-                    disabled={quantity <= 0}
-                  >
+                  <Pressable style={styles.counterButton} onPress={decrement} disabled={quantity <= 0}>
                     <Ionicons name="remove" size={18} color={Colors.navy} />
                   </Pressable>
 
@@ -231,36 +215,10 @@ export default function TowelDetailsScreen() {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  highlight,
-  last,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-  last?: boolean;
-}) {
-  return (
-    <View style={[styles.row, !last && styles.rowBorder]}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={[styles.rowValue, highlight && styles.rowValueHighlight]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#ffffff' },
   container: { flex: 1, backgroundColor: '#ffffff' },
   content: { alignItems: 'center', paddingHorizontal: 24, paddingTop: 240, paddingBottom: 54 },
-  card: {
-    width: '100%',
-    backgroundColor: 'rgba(233, 235, 239, 0.5)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 18,
-  },
   trackingCard: {
     width: '90%',
     backgroundColor: 'rgba(233, 235, 239, 0.5)',
@@ -283,12 +241,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     letterSpacing: 1,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 14 },
-  rowBorder: { borderBottomWidth: 0.5, borderBottomColor: '#0000001A' },
-  rowLabel: { fontSize: 13, color: '#7a7a7a', fontFamily: Fonts.body },
-  rowValue: { fontSize: 13, fontWeight: '600', color: '#1a1a1a', fontFamily: Fonts.body },
-  rowValueHighlight: { color: '#c9a25a', fontFamily: Fonts.heading, fontSize: 16 },
-
   tabRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -311,7 +263,6 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: '#c9a25a',
   },
-
   counterBox: {
     borderRadius: 14,
     paddingVertical: 20,
@@ -354,7 +305,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#ffffffcc',
   },
-
   errorText: {
     fontFamily: Fonts.body,
     fontSize: 13,
@@ -362,7 +312,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
-
   submitButton: {
     backgroundColor: '#ffffff',
     borderWidth: 1.5,
@@ -376,7 +325,6 @@ const styles = StyleSheet.create({
   },
   submitDisabled: { opacity: 0.5 },
   submitText: { color: '#c9a25a', fontSize: 14, fontWeight: '700', fontFamily: Fonts.body },
-
   remainingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -385,18 +333,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: '#0000001A',
   },
-  remainingLabel: {
-    fontFamily: Fonts.body,
-    fontSize: 14,
-    color: Colors.navy,
-  },
+  remainingLabel: { fontFamily: Fonts.body, fontSize: 14, color: Colors.navy },
   remainingValue: {
     fontFamily: Fonts.heading,
     fontSize: 22,
     color: '#c9a25a',
     fontWeight: '700',
   },
-
   backButton: {
     backgroundColor: '#16233f',
     borderRadius: 8,
@@ -405,7 +348,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   backButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '600', fontFamily: Fonts.body },
-
   toast: {
     position: 'absolute',
     top: 44,
@@ -423,12 +365,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 12,
   },
-  toastLabel: {
-    fontFamily: Fonts.body,
-    fontSize: 12,
-    color: '#b0b0b0',
-    marginBottom: 6,
-  },
+  toastLabel: { fontFamily: Fonts.body, fontSize: 12, color: '#b0b0b0', marginBottom: 6 },
   toastTitle: { fontFamily: Fonts.heading, fontSize: 16, marginBottom: 4 },
   toastTitleBlue: { color: '#3478f6' },
   toastTitleGreen: { color: '#34c759' },

@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import { Colors, Fonts } from '@/constants/theme';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -16,16 +15,16 @@ import {
 } from 'react-native';
 
 import axios from 'axios';
-import MainHeader from '../../components/common/MainHeader';
-import ScanButton from '../../components/scan/ScanButton';
-import ScanTextInput from '../../components/scan/ScanTextInput';
-import { useNfcScan } from '../../hooks/scan/useNfcScan';
-import { useTranslation } from '../../i18n/LanguageContext';
-import { checkAccess, checkTowelAccess } from '../../service/scan.service';
-import { useAuthStore } from '../../store/auth.store';
-import { useScanStore } from '../../store/scan.store';
-import { getDeviceId } from '../../utils/device';
-import { getRoomId } from '../../utils/roomConfig';
+import MainHeader from '../../../components/common/MainHeader';
+import ScanButton from '../../../components/scan/ScanButton';
+import ScanTextInput from '../../../components/scan/ScanTextInput';
+import { useNfcScan } from '../../../hooks/nfc-scan/useNfcScan';
+import { useTranslation } from '../../../i18n/LanguageContext';
+import { checkAccess, checkTowelAccess } from '../../../service/scan.service';
+import { useAuthStore } from '../../../store/auth.store';
+import { useScanStore } from '../../../store/scan.store';
+import { getDeviceId } from '../../../utils/device';
+import { getRoomId } from '../../../utils/roomConfig';
 
 export default function ScanHomeScreen() {
   const router = useRouter();
@@ -112,9 +111,7 @@ export default function ScanHomeScreen() {
 
       setResult(response);
 
-      router.push(
-        response.allowed ? '/allowed' : '/not-allowed'
-      );
+      router.push('/(app)/scan-result');
     } catch (err) {
       console.log('[ScanHomeScreen] handleScan error:', err);
       if (axios.isAxiosError(err)) {
@@ -161,9 +158,7 @@ export default function ScanHomeScreen() {
 
       setResult(response);
 
-      router.push(
-        response.allowed ? '/allowed' : '/not-allowed'
-      );
+      router.push('/(app)/scan-result');
     } catch (err) {
       if (axios.isAxiosError(err)) {
         console.log('Status:', err.response?.status);
@@ -190,7 +185,7 @@ export default function ScanHomeScreen() {
   }
 
   return (
-    <ScrollView>
+    <View style={styles.root}>
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -231,7 +226,7 @@ export default function ScanHomeScreen() {
               disabled={busy}
             >
               <Image
-                source={require('../../../assets/images/nfc-scan.png')}
+                source={require('../../../../assets/images/nfc-scan.png')}
                 style={styles.cardImage}
                 resizeMode="cover"
               />
@@ -283,12 +278,16 @@ export default function ScanHomeScreen() {
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-    </ScrollView>
+        </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: Colors.white,
+  },
+  root: {
     flex: 1,
     backgroundColor: Colors.white,
   },
@@ -343,7 +342,6 @@ const styles = StyleSheet.create({
 
   titleUnderlineKeyboardOpen: {
     marginBottom: 0,
-  
   },
 
   cardFrame: {

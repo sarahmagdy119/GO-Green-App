@@ -1,4 +1,3 @@
-// app/(tabs)/activity-log.tsx
 import { Colors, Fonts } from '@/constants/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,16 +12,16 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MainHeader from '../../components/common/MainHeader';
-import ActivityLogRow from '../../components/scan/ActivityLogRow';
-import LogHistoryModal from '../../components/scan/LogHistoryModal';
-import { useTranslation } from '../../i18n/LanguageContext';
+import MainHeader from '../../../components/common/MainHeader';
+import ActivityLogRow from '../../../components/scan/ActivityLogRow';
+import LogHistoryModal from '../../../components/scan/LogHistoryModal';
+import { useTranslation } from '../../../i18n/LanguageContext';
 import {
   bulkReturnTowels,
   getTowelLogs,
   getTowelSummary,
-} from '../../service/scan.service';
-import { TowelLogItem, TowelSummaryItem } from '../../types/scan.types';
+} from '../../../service/scan.service';
+import { TowelLogItem, TowelSummaryItem } from '../../../types/scan.types';
 
 export default function ActivityLogScreen() {
   const router = useRouter();
